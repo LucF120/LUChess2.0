@@ -97,7 +97,7 @@
 
 ; a8 = (coordinate 0 7)
 ; c4 = (coordinate 2 3)
-(define-struct coordinate (file rank))
+(struct coordinate (file rank))
 
 ; Returns what a rank corresponds to in the board 2D vector
 ; Example: rank 1 is idx 0 

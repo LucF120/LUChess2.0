@@ -4,7 +4,7 @@
          "pieces.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(define-struct game (board white-king-square black-king-square))
+(struct game (board white-king-square black-king-square))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;              Creating, updating, and printing board
@@ -47,28 +47,36 @@
     (set-rank board 6 (make-vector 8 0))
     board))
 
-(define (print-board board)
-  (for [(r (in-range 7 -1 -1))
-        (rankstr '(8 7 6 5 4 3 2 1))]
-    (display (string-append (number->string rankstr) "| "))
-    (let [(rank (vector-ref board r))]
-      (for [(f (in-range 8))]
-        (let* [(p (vector-ref rank f))
-               (unicode (piece->unicode p))]
-          (display (string-append unicode " "))))
-      (display "\n")))
-  (display "   a b c d e f g h"))
+(define (init-game)
+  (let [(board (init-board))
+        (white-king-loc e1)
+        (black-king-loc e8)]    
+    (game board white-king-loc black-king-loc)))
+
+(define (print-board g)
+  (let [(board (game-board g))]
+    (for [(r (in-range 7 -1 -1))
+          (rankstr '(8 7 6 5 4 3 2 1))]
+      (display (string-append (number->string rankstr) "| "))
+      (let [(rank (vector-ref board r))]
+        (for [(f (in-range 8))]
+          (let* [(p (vector-ref rank f))
+                 (unicode (piece->unicode p))]
+            (display (string-append unicode " "))))
+        (display "\n")))
+    (display "   a b c d e f g h")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;                  Actual Game Logic
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (move board from to)
-  (if (legal-move? board from to)
-      (let [(p (get-square board from))]
-        (set-square board from 0)
-        (set-square board to p))
-      (error 'invalid-move "")))
+(define (move g from to)
+  (let [(board (game-board g))]
+    (if (legal-move? g from to)
+        (let [(p (get-square board from))]
+          (set-square board from 0)
+          (set-square board to p))
+        (error 'invalid-move ""))))
 
 ;;; Check if the sqr has a piece on it 
 (define (empty-square? board sqr)
