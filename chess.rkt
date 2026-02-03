@@ -60,7 +60,6 @@
 ;;;                  Actual Game Logic
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; TODO: This doesnt check literally anything lol 
 (define (move board from to)
   (if (legal-move? board from to)
       (let [(p (get-square board from))]
@@ -143,11 +142,9 @@
                      (map list
                           (in-range-auto from-file to-file)
                           (in-range-auto from-rank to-rank)))]
-            [else (error 'impl "")])))))
-  
-;;; Note: The board is not needed to check if a knight move is legal
-;;; simply because knights can jump over pieces.
-;;; - This is not the case for any other piece 
+            [else #f])))))
+
+
 (define (legal-knight-move? from to)
   (let-values [((from-rank from-file to-rank to-file horiz-dist vert-dist)
                 (destruct-coords from to))]
@@ -189,27 +186,70 @@
       
       [else #f])))
 
+; A rook move is legal if the from and to are the same rank, or the same file 
+(define (legal-rook-move? from to)
+  (let-values [((from-rank from-file to-rank to-file horiz-dist vert-dist)
+                (destruct-coords from to))]
+    (or (equal? from-rank to-rank)
+        (equal? from-file to-file))))
+
+; A bishop move is legal if it is moving diagonally
+(define (legal-bishop-move? from to)
+  (let-values [((from-rank from-file to-rank to-file horiz-dist vert-dist)
+                (destruct-coords from to))]
+    (diagonal? from-rank from-file to-rank to-file)))
+
+; A queen move is legal if it is moving vertically, horizontally, or diagonally
+(define (legal-queen-move? from to)
+  (let-values [((from-rank from-file to-rank to-file horiz-dist vert-dist)
+                (destruct-coords from to))]
+    (or (equal? from-rank to-rank)
+        (equal? from-file to-file)
+        (diagonal? from-rank from-file to-rank to-file))))
+
+; A king move is legal if it is moving 1 square in any direction, and is not
+; moving itself into danger
+;
+; Another legal king move is e1-c1 and e1-g1 when castling. This is allowed if
+;    1. The king is not in check
+;    2. The king and rook have never moved
+;    3. The king doesnt castle through check
+;          When long castling, c1 and d1 cant be under attack. 
+;          When short castling, f1 cant be under attack. 
+;
+(define (legal-king-move? from to)
+  (error 'impl ""))
 
 (define (legal-move? board from to)
-  (cond
-    ; Trying to move an invisible piece 
-    [(empty-square? board from) #f]
+  (let [(p-from (get-square board from))
+        (p-to (get-square board to))]
+    (cond
+      ; BAD: Trying to move an invisible piece 
+      [(empty-square? board from)
+       #f]
+      
+      ; BAD: Can't see the destination square.
+      ;  This occurs if one of the following is true:
+      ;  1. Not on the same vertical, horizontal, or diagonal line
+      ;  2. There is a piece in the way on that line 
+      [(not (can-see-square? board from to))
+       #f]
 
-    ; Can't see the square if one of the following is true:
-    ;  1. Not on the same vertical, horizontal, or diagonal line
-    ;  2. There is a piece in the way on that line 
-    [(not (can-see-square? board from to)) #f]
-    [else 
-     (if (empty-square? board from)
-         #f  ; Trying to move an invisible piece 
-         (let* [(p-from (get-square board from))
-                (p-to (get-square board to))]
-           (if (and (piece? p-to)
-                    (equal? (piece-color p-from) (piece-color p-to)))
-               #f ; Trying to capture your own piece 
-               (cond
-                 [(knight? p-from) (legal-knight-move? from to)]
-                 [(pawn? p-from) (legal-pawn-move? board p-from
-                                                   from to)]
-                 [else #f #;(error 'impl "")]))))]))
+      ; BAD: Trying to capture your own piece
+      [(and (piece? p-to)
+            (equal? (piece-color p-from) (piece-color p-to)))
+       #f]
+
+      ; BAD: Move gets your king killed
+      ; This only needs to be checked if the piece can SEE the king square!
+      ; (can-see-square? from king_square) 
+      ;[.... (error 'implementme "")]
+
+      [(rook? p-from) (legal-rook-move? from to)]
+      [(knight? p-from) (legal-knight-move? from to)]
+      [(bishop? p-from) (legal-bishop-move? from to)]
+      [(queen? p-from) (legal-queen-move? from to)]
+      [(pawn? p-from) (legal-pawn-move? board p-from from to)]
+      [(king? p-from) (legal-king-move? board p-from p-to)]
+      [else #f #;(error 'impl "")])))
 
