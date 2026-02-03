@@ -21,7 +21,7 @@
          (rank-idx (coordinate-rank coord))
          (rank (vector-ref board rank-idx))]
     (vector-ref rank file-idx)))
-         
+
 (define (init-board)
   ;;; Set an entire rank to a vector of pieces
   ;;; This is only useful when initializing the board
@@ -42,7 +42,7 @@
     (set-rank board 4 (make-vector 8 0))
     (set-rank board 5 (make-vector 8 0))
     (set-rank board 6 (make-vector 8 0))
-  board))
+    board))
 
 (define (print-board board)
   (for [(r (in-range 7 -1 -1))
@@ -90,67 +90,77 @@
   (stream->list (if (> from to)
                     (in-range (- from 1) to -1)
                     (in-range (+ from 1) to))))
-      
+
+; Helper function that takes two squares, and returns the
+; indexes into the 2D vector, and the vert/horiz distances
+; Example:
+;   (destruct-coords b2 g7) = from-rank = 1
+;                             from-file = 1
+;                             to-rank   = 6
+;                             to-file   = 6
+;                             horiz-dist = 5
+;                             vert-dist =  5
+(define (destruct-coords from to)
+  (let* [(from-coord (square->idx from))
+         (to-coord (square->idx to))
+         (from-rank (coordinate-rank from-coord))
+         (from-file (coordinate-file from-coord))
+         (to-rank (coordinate-rank to-coord))
+         (to-file (coordinate-file to-coord))
+         (horiz-dist (- to-file from-file))
+         (vert-dist (- to-rank from-rank))]
+    (values from-rank
+            from-file
+            to-rank
+            to-file
+            horiz-dist
+            vert-dist)))
+
 ; Check if any pieces obstruct the view from 1 square to another
 (define (can-see-square? board from to)
   (if (equal? from to)
       #f  ; Pieces cant move to themselves 
-      (let* [(from-coord (square->idx from))
-            (to-coord (square->idx to))
-            (from-rank (coordinate-rank from-coord))
-            (from-file (coordinate-file from-coord))
-            (to-rank (coordinate-rank to-coord))
-            (to-file (coordinate-file to-coord))
-            (horizontal (equal? from-rank to-rank))
-            (vertical (equal? from-file to-file))
-            (diagonal (diagonal? from-rank from-file to-rank to-file))]
-        (cond
-          [horizontal
-           (andmap (lambda (x)
-                     (not (piece? (get-square board
-                                              (idx->square (coordinate x from-rank))))))
-                   (in-range-auto from-file to-file))]
-          [vertical
-           (andmap (lambda (x)
-                     (not (piece? (get-square board
-                                              (idx->square (coordinate from-file x))))))
-                   (in-range-auto from-rank to-rank))]
-          [diagonal
-           (andmap (lambda (x)
-                     (not (piece? (get-square board
-                                              (idx->square (coordinate (car x) (cadr x)))))))
-                   (map list
-                        (in-range-auto from-file to-file)
-                        (in-range-auto from-rank to-rank)))]))))
+      (let-values [((from-rank from-file to-rank to-file horiz-dist vert-dist)
+                    (destruct-coords from to))]
+        (let [(horizontal (equal? from-rank to-rank))
+              (vertical (equal? from-file to-file))
+              (diagonal (diagonal? from-rank from-file to-rank to-file))]
+          (cond
+            [horizontal
+             (andmap (lambda (x)
+                       (not (piece? (get-square board
+                                                (idx->square (coordinate x from-rank))))))
+                     (in-range-auto from-file to-file))]
+            [vertical
+             (andmap (lambda (x)
+                       (not (piece? (get-square board
+                                                (idx->square (coordinate from-file x))))))
+                     (in-range-auto from-rank to-rank))]
+            [diagonal
+             (andmap (lambda (x)
+                       (not (piece? (get-square board
+                                                (idx->square (coordinate (car x) (cadr x)))))))
+                     (map list
+                          (in-range-auto from-file to-file)
+                          (in-range-auto from-rank to-rank)))]
+            [else (error 'impl "")])))))
   
 ;;; Note: The board is not needed to check if a knight move is legal
 ;;; simply because knights can jump over pieces.
 ;;; - This is not the case for any other piece 
 (define (legal-knight-move? from to)
-  (let* [(from-coord (square->idx from))
-         (from-file-idx (coordinate-file from-coord))
-         (from-rank-idx (coordinate-rank from-coord))
-         (to-coord (square->idx to))
-         (to-file-idx (coordinate-file to-coord))
-         (to-rank-idx (coordinate-rank to-coord))
-         (horiz-dist (abs (- from-file-idx to-file-idx)))
-         (vert-dist (abs (- from-rank-idx to-rank-idx)))]
+  (let-values [((from-rank from-file to-rank to-file horiz-dist vert-dist)
+                (destruct-coords from to))]
     ; Knights must move 2 vert and 1 horizontal,
     ; or 1 vert and 2 horizontal 
-    (if (or (and (equal? horiz-dist 2) (equal? vert-dist 1))
-            (and (equal? horiz-dist 1) (equal? vert-dist 2)))
+    (if (or (and (equal? (abs horiz-dist) 2) (equal? (abs vert-dist) 1))
+            (and (equal? (abs horiz-dist) 1) (equal? (abs vert-dist) 2)))
         #t
         #f)))
 
 (define (legal-pawn-move? board p from to)
-  (let* [(from-coord (square->idx from))
-         (from-file-idx (coordinate-file from-coord))
-         (from-rank-idx (coordinate-rank from-coord))
-         (to-coord (square->idx to))
-         (to-file-idx (coordinate-file to-coord))
-         (to-rank-idx (coordinate-rank to-coord))
-         (horiz-dist (- to-file-idx from-file-idx))
-         (vert-dist (- to-rank-idx from-rank-idx))]
+  (let-values [((from-rank from-file to-rank to-file horiz-dist vert-dist)
+                (destruct-coords from to))]
     (cond
       ; White pawn going down or black pawn going up
       [(or (and (< vert-dist 0) (white? p))
@@ -167,13 +177,13 @@
       
       ; Capture case. Only legal if there is a piece to capture
       ; TODO: implement en passant
-      [(and (equal? vert-dist 1)
-            (equal? horiz-dist 1))
+      [(and (equal? (abs vert-dist) 1)
+            (equal? (abs horiz-dist) 1))
        (piece? (get-square board to))]
       
       ; One move forward case. Only legal if there is not a piece
       ; on that square.
-      [(and (equal? vert-dist 1)
+      [(and (equal? (abs vert-dist) 1)
             (equal? horiz-dist 0))
        (not (piece? (get-square board to)))]
       
@@ -202,4 +212,4 @@
                  [(pawn? p-from) (legal-pawn-move? board p-from
                                                    from to)]
                  [else #f #;(error 'impl "")]))))]))
-    
+
