@@ -4,6 +4,9 @@
          "pieces.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(define-struct game (board white-king-square black-king-square))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;              Creating, updating, and printing board
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Update a square of the board to contain the given piece
@@ -220,8 +223,33 @@
 (define (legal-king-move? from to)
   (error 'impl ""))
 
-(define (legal-move? board from to)
-  (let [(p-from (get-square board from))
+(define (can-see-white-king? g sqr)
+  (let [(board (game-board g))
+        (white-king-sqr (game-white-king-square g))]
+    (can-see-square? board sqr white-king-sqr)))
+
+(define (can-see-black-king? g sqr)
+  (let [(board (game-board g))
+        (black-king-sqr (game-black-king-square g))]
+    (can-see-square? board sqr black-king-sqr)))
+
+(define (can-see-my-king? g sqr)
+  (let* [(board (game-board g))
+        (p (get-square board sqr))]
+    (if (white? p)
+        (can-see-white-king? g sqr)
+        (can-see-black-king? g sqr))))
+
+(define (can-see-opposing-king? g sqr)
+  (let* [(board (game-board g))
+        (p (get-square board sqr))]
+    (if (white? p)
+        (can-see-black-king? g sqr)
+        (can-see-white-king? g sqr))))
+
+(define (legal-move? g from to)
+  (let* [(board (game-board g))
+        (p-from (get-square board from))
         (p-to (get-square board to))]
     (cond
       ; BAD: Trying to move an invisible piece 
@@ -242,8 +270,13 @@
 
       ; BAD: Move gets your king killed
       ; This only needs to be checked if the piece can SEE the king square!
-      ; (can-see-square? from king_square) 
-      ;[.... (error 'implementme "")]
+      ; Idea for checking moving-exposes-king?
+      ;       - get all the squares of pieces that can see from
+      ;       - using this, get all the pieces that can see from
+      ;       - then, see if any of those pieces can see white-king if from is gone 
+      #;[(and (can-see-my-king? g from)
+            (moving-exposes-king? g from))
+            (error 'impl "") ]
 
       [(rook? p-from) (legal-rook-move? from to)]
       [(knight? p-from) (legal-knight-move? from to)]
