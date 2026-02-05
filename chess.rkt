@@ -129,7 +129,7 @@
 ; Check if any pieces obstruct the view from 1 square to another
 (define (can-see-square? board from to)
   (if (equal? from to)
-      #f  ; Pieces cant move to themselves 
+      #f  ; Pieces cant move to themselves
       (let-values [((from-rank from-file to-rank to-file horiz-dist vert-dist)
                     (destruct-coords from to))]
         (let [(horizontal (equal? from-rank to-rank))
@@ -265,10 +265,11 @@
        #f]
       
       ; BAD: Can't see the destination square.
-      ;  This occurs if one of the following is true:
-      ;  1. Not on the same vertical, horizontal, or diagonal line
-      ;  2. There is a piece in the way on that line 
-      [(not (can-see-square? board from to))
+      ;  This occurs if piece is not a knight, AND...
+      ;     - It is not on the same vertical, horizontal, or diagonal line
+      ;     - OR, there is a piece in the way on that line 
+      [(and (not (knight? p-from))
+            (not (can-see-square? board from to (knight? p-from))))
        #f]
 
       ; BAD: Trying to capture your own piece
